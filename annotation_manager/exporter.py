@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 from annotation_manager.plugin import PluginMetaclass
+from annotation_manager.common_representation import DocumentLibrary
 
 
 class AnnotationExporter(object):
@@ -16,10 +17,20 @@ class AnnotationExporter(object):
         super(AnnotationExporter, self).__init__()
 
     @abstractmethod
-    def add_annotations(self, annotations):
-        """Add annotations to the corresponding source.
+    def export_library(self, library):
+        """Export document library to the corresponding destination.
 
-        :param AnnotationSet annotations: The set of annotations to add.
+        :param DocumentLibrary library: The library to export.
+        """
+        pass
+
+    @abstractmethod
+    def add_annotations_to_document(self, document, annotations):
+        """Add a set of new annotations to a document.
+
+        :param AnnotatedDocument document: The document.
+        :param annotations: A list of annotations to add.
+        :type annotations: list of PDFLocPair|PDFLocBoundingBoxes
         """
         pass
 

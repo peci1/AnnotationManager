@@ -4,6 +4,7 @@ Various utilities that may come handy for the plugins.
 
 import io
 import os
+import hashlib
 
 
 def reversed_lines(file_or_path, encoding='utf-8'):
@@ -44,3 +45,12 @@ def reversed_blocks(file, blocksize=io.DEFAULT_BUFFER_SIZE):
         here -= delta
         file.seek(here, os.SEEK_SET)
         yield file.read(delta)
+
+
+def hashfile(filename, hasher, blocksize=65536):
+    with open(filename, 'rb') as file_to_hash:
+        buf = file_to_hash.read(blocksize)
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = file_to_hash.read(blocksize)
+        return hasher.hexdigest()

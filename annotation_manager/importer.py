@@ -16,14 +16,11 @@ class AnnotationImporter(object):
         super(AnnotationImporter, self).__init__()
 
     @abstractmethod
-    def get_annotations(self, pages=None):
-        """Get annotations that belong to this importer.
+    def get_annotated_library(self):
+        """Get the imported :py:class:`DocumentLibrary`.
 
-        :param list pages: Optional subset of pages of interest. If not given, all pages are assumed.
-                           Pages are numbered from 1.
-
-        :return: The found annotations.
-        :rtype: AnnotationSet
+        :return: The imported :py:class:`DocumentLibrary`.
+        :rtype: DocumentLibrary
         """
         pass
 

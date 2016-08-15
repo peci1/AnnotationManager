@@ -5,7 +5,8 @@ import pkgutil
 import sys
 
 from annotation_manager.exporter import AnnotationExporterFactory
-from importer import AnnotationImporterFactory
+from annotation_manager.importer import AnnotationImporterFactory
+from annotation_manager.common_representation import DocumentLibrary
 
 logging.basicConfig()
 
@@ -20,13 +21,25 @@ class AnnotationManager(object):
     It primarily targets PDF files in connection with PDF/ebook readers, but is open to extensions to other domains.
     """
 
-    def __init__(self):
+    _source = None
+    _destination = None
+
+    _source_library = None
+    _destination_library = None
+
+    _source_importer = None
+    _destination_importer = None
+    _exporter = None
+
+    def __init__(self, source=None, destination=None):
         super(AnnotationManager, self).__init__()
 
-        this_script_path = os.path.dirname(os.path.realpath(sys.argv[0]))
+        this_script_path = os.path.dirname(os.path.realpath(__file__))
         additional_plugin_dirs = [
-            os.path.join(this_script_path, "annotation_manager", "plugins"),  # ./annotation_manager/plugins
-            os.path.join(os.environ["HOME"], ".annotation_manager"),  # ~/.annotation_manager
+            # ./annotation_manager/plugins
+            os.path.join(this_script_path, "plugins"),
+            # ~/.annotation_manager/plugins
+            os.path.join(os.environ["HOME"], ".annotation_manager", "plugins"),
         ]
 
         AnnotationManager.load_plugins(*additional_plugin_dirs)
@@ -42,6 +55,56 @@ class AnnotationManager(object):
             for factory in AnnotationExporterFactory.registered:
                 self.add_exporter_factory(factory)
 
+        self.import_source(source)
+        self.import_destination(destination)
+
+    def get_source_library(self):
+        if self._source_library is None and self._source_importer is not None:
+            self._source_library = self._source_importer.get_annotated_library()
+
+        return self._source_library
+
+    def get_destination_library(self):
+        if self._destination_library is None and self._destination_importer is not None:
+            self._destination_library = self._destination_importer.get_annotated_library()
+
+        return self._destination_library
+
+    def import_source(self, source):
+        if source is not None:
+            self._source = source
+            for factory in self._importer_factories:
+                importer = factory.get_importer_for_source(self._source)
+                if importer is not None:
+                    self._source_importer = importer
+                    break
+
+    def import_destination(self, destination):
+        if destination is not None:
+            self._destination = destination
+            for factory in self._importer_factories:
+                importer = factory.get_importer_for_source(self._destination)
+                if importer is not None:
+                    self._destination_importer = importer
+                    break
+            for factory in self._exporter_factories:
+                exporter = factory.get_exporter_for_destination(self._destination)
+                if exporter is not None:
+                    self._exporter = exporter
+                    break
+
+    def sync_and_export_annotations(self):
+        source_library = self.get_source_library()
+        destination_library = self.get_destination_library()
+
+        common, only_source, only_destination = source_library.find_common_documents(destination_library)
+
+        for (source_document, destination_document) in common:
+            common_annotations, only_source_annotations, only_destination_annotations = \
+                source_document.find_common_annotations(destination_document)
+
+            self._exporter.add_annotations_to_document(destination_document, only_source_annotations)
+
     def add_importer_factory(self, factory):
         """
         Register a new :py:class:`AnnotationImporterFactory`.
@@ -51,7 +114,7 @@ class AnnotationManager(object):
         """
         assert issubclass(factory, AnnotationImporterFactory)
         log.info("Importing %s" % str(factory))
-        self._importer_factories.append(factory)
+        self._importer_factories.append(factory())
 
     def add_exporter_factory(self, factory):
         """
@@ -62,7 +125,7 @@ class AnnotationManager(object):
         """
         assert issubclass(factory, AnnotationExporterFactory)
         log.info("Importing %s" % str(factory))
-        self._exporter_factories.append(factory)
+        self._exporter_factories.append(factory())
 
     @staticmethod
     def load_plugins(*paths):

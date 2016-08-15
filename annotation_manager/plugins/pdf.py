@@ -16,5 +16,8 @@ class PdfExporter(AnnotationExporter):
 
         self._path = path
 
-    def add_annotations(self, annotations):
+    def export_library(self, library):
+        pass
+
+    def add_annotations_to_document(self, document, annotations):
         pass
