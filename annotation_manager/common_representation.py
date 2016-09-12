@@ -1,16 +1,16 @@
 import hashlib
 import os
 from abc import ABCMeta, abstractmethod
+from six import add_metaclass
 
 from collections import OrderedDict
 
 from pdfloc_converter.converter import PDFLocConverter
-from pdfloc_converter.pdfloc import PDFLocBoundingBoxes
+from pdfloc_converter.pdfloc import PDFLocBoundingBoxes, PointOnPage, PDFLoc, PDFLocPair
 
 
+@add_metaclass(ABCMeta)
 class DocumentLibrary(object):
-
-    __metaclass__ = ABCMeta
 
     def __init__(self):
         self._documents = OrderedDict()
@@ -42,9 +42,8 @@ class DocumentLibrary(object):
         return find_common_items(self.get_documents(), other.get_documents(), lambda document: document.filesize)
 
 
+@add_metaclass(ABCMeta)
 class AnnotatedDocument(object):
-
-    __metaclass__ = ABCMeta
 
     _filename = None
     _filesize = None
@@ -127,12 +126,12 @@ class AnnotatedDocument(object):
         return self._filesize
 
 
+@add_metaclass(ABCMeta)
 class AnnotationSet(object):
 
-    __metaclass__ = ABCMeta
-
-    _pdfloc_annotations = []
-    _bbox_annotations = []
+    _pdfloc_annotations = []  # TODO remove
+    _bbox_annotations = []  # TODO remove
+    _annotations = []
 
     def empty(self):
         return len(self._pdfloc_annotations) == 0 and len(self._bbox_annotations) == 0
@@ -144,6 +143,8 @@ class AnnotationSet(object):
     @property
     def bbox_annotations(self):
         return self._bbox_annotations
+
+    # TODO convert to the generalized annotation
 
     def __str__(self):
         return self.__repr__()
@@ -157,6 +158,115 @@ class AnnotationSet(object):
             return u"\n".join([str(annotation) for annotation in self._bbox_annotations])
 
         return "No annotations."
+
+
+@add_metaclass(ABCMeta)
+class Annotation(object):
+
+    _created_time = None
+    _modified_time = None
+
+    def __init__(self, created_time, modified_time):
+        super(Annotation, self).__init__()
+
+        self._created_time = created_time
+        self._modified_time = modified_time
+
+    @abstractmethod
+    def type_description(self):
+        pass
+
+    """If false, the created time is only approximated or it is current time."""
+    @staticmethod
+    def created_time_is_exact():
+        return True
+
+    """If false, the modified time is only approximated or it is current time."""
+    @staticmethod
+    def modified_time_is_exact():
+        return True
+
+
+class AnnotationWithText(Annotation):
+    _text = None
+
+    def __init__(self, text, created_time, modified_time):
+        super(AnnotationWithText, self).__init__(created_time, modified_time)
+
+        self._text = text
+
+    @property
+    def text(self):
+        return self._text
+
+
+class PageAnnotaion(Annotation):
+    _page = 0
+
+    def __init__(self, page, created_time, modified_time):
+        super(PageAnnotaion, self).__init__(created_time, modified_time)
+
+        self._page = page
+
+    @property
+    def page(self):
+        return self._page
+
+
+class PointAnnotation(Annotation):
+    _point = {PointOnPage: None, PDFLoc: None}
+
+    def __init__(self, point, created_time, modified_time):
+        super(PointAnnotation, self).__init__(created_time, modified_time)
+
+        self._point[type(point)] = point
+
+    @property
+    def point(self):
+        return self._point
+
+
+class RangeAnnotation(Annotation):
+    _range = {PDFLocBoundingBoxes: None, PDFLocPair: None}
+
+    def __init__(self, range, created_time, modified_time):
+        super(RangeAnnotation, self).__init__(created_time, modified_time)
+
+        self._range[type(range)] = range
+
+    @property
+    def range(self):
+        return self._range
+
+
+class Highlight(RangeAnnotation, AnnotationWithText):
+
+    def __init__(self, range, text, created_time, modified_time):
+        RangeAnnotation.__init__(self, range, created_time, modified_time)
+        AnnotationWithText.__init__(self, text, created_time, modified_time)
+
+    def type_description(self):
+        return "Highlight"
+
+
+class Note(PointAnnotation, AnnotationWithText):
+
+    def __init__(self, point, text, created_time, modified_time):
+        PointAnnotation.__init__(self, point, created_time, modified_time)
+        AnnotationWithText.__init__(self, text, created_time, modified_time)
+
+    def type_description(self):
+        return "Note"
+
+
+class Bookmark(PointAnnotation, AnnotationWithText):
+
+    def __init__(self, point, text, created_time, modified_time):
+        PointAnnotation.__init__(self, point, created_time, modified_time)
+        AnnotationWithText.__init__(self, text, created_time, modified_time)
+
+    def type_description(self):
+        return "Bookmark"
 
 
 def find_common_items(list1, list2, key_function):

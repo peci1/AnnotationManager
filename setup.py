@@ -24,5 +24,5 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Topic :: Utilities',
     ],
-    requires=['pdfminer', 'pdfloc_converter']
+    requires=['pdfminer', 'pdfloc_converter', 'six']
 )
